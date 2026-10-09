@@ -1,0 +1,14 @@
+export type Client = { id:string; organization_id:string; name:string; type:'residential'|'hoa'|'commercial'|'contractor'; phone:string|null; notes:string|null; created_at?:string };
+export type Contact = { id:string; organization_id:string; client_id:string; name:string; email:string|null; phone:string|null; role:'primary'|'estimates'|'billing'|'property'|'other'; created_at?:string };
+export type Property = { id:string; organization_id:string; client_id:string; label:string; address_line1:string; city:string; state:string; postal_code:string; notes:string|null; created_at?:string };
+export type Job = { id:string; organization_id:string; client_id:string; property_id:string|null; title:string; status:'lead'|'estimate'|'approved'|'scheduled'|'in_progress'|'complete'|'invoiced'|'closed'; scheduled_date:string|null; notes:string|null; created_at?:string };
+export type Document = { id:string; organization_id:string; client_id:string; property_id:string|null; job_id:string|null; kind:'estimate'|'invoice'; number:string; title:string; amount:number; status:string; recipient_contact_id:string|null; recipient_email:string; notes:string|null; created_at?:string };
+export type Store = { clients: Client[]; contacts:Contact[]; properties:Property[]; jobs:Job[]; documents:Document[] };
+export const emptyStore = (): Store => ({ clients: [], contacts:[], properties:[], jobs:[], documents:[] });
+export const demoStore = (): Store => ({
+ clients:[{id:'c1',organization_id:'demo',name:'Example HOA',type:'hoa',phone:'(555) 010-0131',notes:'Demo customer — replace with your information'},{id:'c2',organization_id:'demo',name:'Example Homeowner',type:'residential',phone:null,notes:null}],
+ contacts:[{id:'k1',organization_id:'demo',client_id:'c1',name:'Alex Morgan',email:'approvals@example.com',phone:null,role:'estimates'},{id:'k2',organization_id:'demo',client_id:'c1',name:'Jordan Lee',email:'billing@example.com',phone:null,role:'billing'}],
+ properties:[{id:'p1',organization_id:'demo',client_id:'c1',label:'Building A',address_line1:'123 Example Street',city:'Owosso',state:'MI',postal_code:'48867',notes:null},{id:'p2',organization_id:'demo',client_id:'c1',label:'Building B',address_line1:'456 Sample Avenue',city:'Durand',state:'MI',postal_code:'48429',notes:null}],
+ jobs:[{id:'j1',organization_id:'demo',client_id:'c1',property_id:'p1',title:'Replace seamless gutters',status:'scheduled',scheduled_date:null,notes:'Demo job'}],
+ documents:[{id:'d1',organization_id:'demo',client_id:'c1',property_id:'p1',job_id:'j1',kind:'estimate',number:'EST-1001',title:'Replace seamless gutters',amount:2750,status:'draft',recipient_contact_id:'k1',recipient_email:'approvals@example.com',notes:null},{id:'d2',organization_id:'demo',client_id:'c1',property_id:'p1',job_id:'j1',kind:'invoice',number:'INV-1001',title:'Replace seamless gutters',amount:2750,status:'draft',recipient_contact_id:'k2',recipient_email:'billing@example.com',notes:null}]
+});

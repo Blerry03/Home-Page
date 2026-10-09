@@ -1,0 +1,3 @@
+-- ONLY if you previously applied schema.sql in version 0.1.
+-- Apply the documents section from schema.sql (starting with "create table public.documents")
+-- by pasting that portion into the SQL Editor. DO NOT rerun the whole schema.
