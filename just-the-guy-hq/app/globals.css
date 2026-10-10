@@ -21,3 +21,11 @@
 
 /* v0.9: line-item editor lives directly inside Estimates and Invoices */
 .documentsWorkspace{max-width:1200px;margin:0 auto}.documentWorkspaceHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.documentsWorkspace .billingV8{max-width:none}.documentsWorkspace .billingV8 .panelHead{display:none}
+
+/* Unified estimate / invoice creation workspace */
+.newDocForm{display:grid;gap:12px;padding:4px 22px 22px}
+.newDocForm .billingSection{margin:0}
+.newDocForm .newDocFull{grid-column:1/-1}
+.newDocActions{display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--surface,#fff);padding:16px 0;border-top:1px solid #dce5ee;z-index:3}
+.newDocForm .billingGrid>label{min-width:0}
+@media(max-width:650px){.newDocForm{padding:4px 10px 14px}.newDocActions{flex-direction:column-reverse}.newDocActions button{width:100%}}
