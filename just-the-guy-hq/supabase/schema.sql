@@ -31,6 +31,7 @@ create table public.jobs (
  client_id uuid not null, property_id uuid, title text not null,
  status text not null default 'lead' check(status in ('lead','estimate','approved','scheduled','in_progress','complete','invoiced','closed')),
  scheduled_date date, notes text, created_at timestamptz not null default now(),
+ unique(id,organization_id),
  foreign key (client_id,organization_id) references public.clients(id,organization_id) on delete cascade,
  foreign key (property_id,organization_id) references public.properties(id,organization_id) on delete set null (property_id)
 );

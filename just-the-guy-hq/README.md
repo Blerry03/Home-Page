@@ -60,3 +60,52 @@ This is a standard Next.js application. It can be hosted on Vercel or another Ne
 5. Install Node.js 20+; run `npm install`, then `npm run dev`. Open `http://localhost:3000`.
 
 **Testing note:** This environment has not run a successful Next.js dependency installation or production build. Verify locally before deployment or customer-data use.
+
+
+## Version 0.3 — Minimal navigation + daily command center
+
+- Main navigation: **Dashboard, Customers, Calendar, More**. Under **More**: existing Jobs, Estimates, and Invoices pages. None of the existing CRUD functionality was intentionally removed.
+- Dashboard: Today's schedule, pending estimates (draft/sent), unpaid invoices (not paid/void), quick actions, new leads (jobs with Lead status), and sections reserved for materials and employee hours. Materials and hours are **not stored or totaled yet**; these sections explicitly say they're not set up.
+- Calendar: monthly grid on desktop and job list on mobile; scheduled entries show **customer name, job title/service, and property street/city/state**, and can be clicked to edit the job. Appointment times are **not yet stored** in the `jobs` table; the calendar intentionally does not invent times. To show a location, attach a property to the job.
+- No database migrations required for this UI-only release. Existing Supabase schema from v0.2 is sufficient.
+
+### Updating an existing GitHub website
+
+Your existing GitHub layout places all Next.js files under `just-the-guy-hq/`. **Keep that folder layout** and leave your Vercel Root Directory as `just-the-guy-hq`. The simplest update changes only two files: `just-the-guy-hq/app/page.tsx` and `just-the-guy-hq/app/globals.css`. For each file, open it in GitHub, choose the pencil (Edit), replace its contents with the new file's contents, and commit to your branch. Vercel should build automatically after both changes are committed if auto deployments are enabled. Alternatively use GitHub Desktop to copy both updated files into the matching locations, then commit and push. Do not upload the ZIP itself into GitHub.
+
+### Validation
+
+TypeScript/TSX syntax transcription check completed using TypeScript transpilation, no syntax diagnostics. **A full Next.js build could not be completed here** because dependency installation stalled. Verify the deployment build logs and test key pages before entering real customer data.
+
+
+## Version 0.4 — Calendar redesign + Google Calendar connector
+
+- **Dashboard:** Schedule stays in an easy-to-read **list**, with customer name, service name and address for every job that has a property selected.
+- **Calendar:** Full month grid (including on phones), click/tap a day and read the complete jobs in the **day agenda** beside/below the month. Add a job directly on a selected day. No fictional appointment times: jobs currently store a date only.
+- **Google Calendar:** Authenticated Google OAuth integration with a **manual, one-way** “Sync jobs to Google” action. HQ scheduled dates create/update all-day events in the connected Google primary calendar. **It does not read Google events back into HQ or remove deleted HQ jobs from Google.** The link requires Google Cloud OAuth configuration, server-side env secrets, and the one-time `supabase/google-calendar-v0.4.sql` migration. See `GOOGLE-CALENDAR-SETUP.md`.
+- Deploying UI changes does not automatically connect Google; follow the setup checklist before clicking Connect.
+- All secrets belong only in your hosting environment settings, never GitHub.
+- Validation: TypeScript syntax/transpilation check passed for the project's TS/TSX files. Complete install/Next.js build was unavailable in the authoring environment; confirm Vercel's production build and test in your deployment.
+
+
+## v0.5 — Materials and employee hours
+Run `supabase/upgrade-v0.5.sql` **once** in your existing Supabase project's SQL Editor before using the new modules. It creates `material_items` and `time_entries` with owner-only RLS. **Do not rerun or drop your original schema.**
+
+In the dashboard and **More** menu, use **Materials** to add needed supplies (optionally tied to a job) and mark them needed, ordered or received. Use **Employee hours** to record a worker's name, work date, number of hours, optional job and notes. These entries do not run payroll and are not employee self-service or automated clock-ins.
+
+Demo mode uses separate browser local storage key `jtg-operations-v05`; don't enter real business data there. The web app must be tested with actual Supabase migrations, login, RLS and a production build before using real business records.
+
+### Feature roadmap (not yet implemented)
+1. Quote/invoice line items, taxes, discounts, PDFs, signature approvals, deposits, partial payments and real email delivery.
+2. Full scheduling with appointment times, crew assignment, recurring jobs, Google Calendar automatic sync, dispatch and reminders.
+3. Job photos, file attachments, checklists, measurements, gutter estimator and material consumption/job costing.
+4. Lead capture forms, activity history, automated follow-ups, two-way SMS/email, portal and marketing.
+5. Staff accounts with roles and audit history, reporting, exports/backups, accounting integrations, online payment processing and security review.
+
+Never put OAuth secrets, Supabase service-role keys, customer data, or passwords into GitHub.
+
+---
+
+## v0.6 expanded modules
+
+**Read `UPGRADE-v0.6.md` before deploying.** Run `supabase/upgrade-v0.6.sql` on a backed-up Supabase project after the v0.5 upgrade. Added features include measurement run capture and draft shopping lists, supplier price catalog, employee rates/pay history, preliminary job analytics, optional calendar times and map links, salesperson/subcontractor fields, and an internal document line-item/payment ledger. All external payment, e-sign, communication and automatic intake features remain incomplete. Do not use this release as a replacement for production billing or payroll software.
