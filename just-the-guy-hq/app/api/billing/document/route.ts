@@ -1,19 +1,25 @@
-import {createClient} from '@supabase/supabase-js';
+import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import {billingLineTotals} from '../../../../lib/billing-money';
+import {admin,verifyDocumentShareToken} from '../../../../lib/google-server';
 
 const money=(n:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
 const clean=(v:unknown)=>String(v??'').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/[^\x20-\x7e\n]/g,'?');
 const uuid=/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
 
 async function readDocument(request:Request){
- const id=new URL(request.url).searchParams.get('id')||'';
+ const url=new URL(request.url);const id=url.searchParams.get('id')||'';
  const token=request.headers.get('authorization')?.match(/^Bearer (\S+)$/i)?.[1];
- if(!token||!uuid.test(id))return null;
- const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
- const key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
- if(!url||!key)return null;
- const db=createClient(url,key,{global:{headers:{Authorization:'Bearer '+token}},auth:{persistSession:false,autoRefreshToken:false}});
+ const shared=Boolean(url.searchParams.get('share')&&verifyDocumentShareToken(url.searchParams.get('share')||'',id));
+ if(!uuid.test(id)||(!token&&!shared))return null;
+ let db:SupabaseClient;
+ if(shared)db=admin();
+ else {
+  const supabaseUrl=process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if(!token||!supabaseUrl||!key)return null;
+  db=createClient(supabaseUrl,key,{global:{headers:{Authorization:'Bearer '+token}},auth:{persistSession:false,autoRefreshToken:false}});
+ }
  const {data:doc,error}=await db.from('documents').select('*').eq('id',id).maybeSingle();
  if(error||!doc)return null;
  const [items,payments,client,property]=await Promise.all([
@@ -23,7 +29,7 @@ async function readDocument(request:Request){
   doc.property_id?db.from('properties').select('address_line1,city,state,postal_code').eq('id',doc.property_id).eq('organization_id',doc.organization_id).single():null,
  ]);
  if(items.error||payments.error||client.error||property?.error)throw new Error('Unable to load the complete document.');
- return {doc,items:items.data||[],payments:payments.data||[],client:client.data,property:property?.data};
+ return {doc,items:items.data||[],payments:payments.data||[],client:client.data,property:property?.data,shared};
 }
 
 async function makePdf(data:NonNullable<Awaited<ReturnType<typeof readDocument>>>){
@@ -85,7 +91,7 @@ export async function GET(request:Request){
   const data=await readDocument(request);
   if(!data)return Response.json({error:'Document not available.'},{status:404});
   const pdf=await makePdf(data);
-  return new Response(new Uint8Array(pdf.bytes),{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="'+pdf.filename+'"','Cache-Control':'private, no-store'}});
+  return new Response(new Uint8Array(pdf.bytes),{headers:{'Content-Type':'application/pdf','Content-Disposition':(data.shared?'inline':'attachment')+'; filename="'+pdf.filename+'"','Cache-Control':'private, no-store'}});
  }catch{return Response.json({error:'Unable to create the PDF.'},{status:500});}
 }
 

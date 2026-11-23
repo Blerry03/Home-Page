@@ -17,7 +17,7 @@ export function admin(){
 }
 export async function authenticate(req:NextRequest){
  const bearer=req.headers.get('authorization');
- if(!bearer?.startsWith('Bearer '))throw new Error('Sign in to HQ to use calendar sync');
+ if(!bearer?.startsWith('Bearer '))throw new Error('Sign in to HQ to send this document');
  const db=admin();
  const {data:{user},error}=await db.auth.getUser(bearer.slice(7));
  if(error||!user)throw new Error('Your HQ session expired. Please sign in again.');
@@ -37,8 +37,22 @@ export function verifyState(state:string):string{
  if(typeof decoded.userId!=='string'||typeof decoded.ts!=='number'||Date.now()-decoded.ts>10*60*1000||decoded.ts>Date.now()+60000)throw new Error('Expired Google connection state');
  return decoded.userId;
 }
+export function createDocumentShareToken(documentId:string){
+ const expires=Math.floor(Date.now()/1000)+90*24*60*60;
+ const payload=Buffer.from(`${documentId}.${expires}`).toString('base64url');
+ return `${payload}.${createHmac('sha256',key()).update(payload).digest('base64url')}`;
+}
+export function verifyDocumentShareToken(token:string,documentId:string){
+ try{
+  const [payload,signature]=token.split('.');if(!payload||!signature)return false;
+  const expected=createHmac('sha256',key()).update(payload).digest();const actual=Buffer.from(signature,'base64url');
+  if(actual.length!==expected.length||!timingSafeEqual(expected,actual))return false;
+  const [boundId,expires]=Buffer.from(payload,'base64url').toString().split('.');
+  return boundId===documentId&&/^\d+$/.test(expires||'')&&Number(expires)>Math.floor(Date.now()/1000);
+ }catch{return false;}
+}
 export function callbackUri(){if(!baseUrl)throw new Error('APP_BASE_URL missing');return new URL('/api/google/callback',baseUrl).toString();}
-export function oauthUrl(state:string){if(!googleId)throw new Error('GOOGLE_CLIENT_ID missing');const params=new URLSearchParams({client_id:googleId,redirect_uri:callbackUri(),response_type:'code',scope:'https://www.googleapis.com/auth/calendar.events',access_type:'offline',prompt:'consent',state});return 'https://accounts.google.com/o/oauth2/v2/auth?'+params.toString();}
+export function oauthUrl(state:string){if(!googleId)throw new Error('GOOGLE_CLIENT_ID missing');const params=new URLSearchParams({client_id:googleId,redirect_uri:callbackUri(),response_type:'code',scope:'openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send',access_type:'offline',prompt:'consent',state});return 'https://accounts.google.com/o/oauth2/v2/auth?'+params.toString();}
 export async function tokenRequest(params:URLSearchParams){if(!googleId||!googleSecret)throw new Error('Google OAuth settings missing');params.set('client_id',googleId);params.set('client_secret',googleSecret);const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString(),cache:'no-store'});const data=await res.json();if(!res.ok||!data.access_token)throw new Error(data.error_description||data.error||'Google token exchange failed');return data as {access_token:string;refresh_token?:string;expires_in?:number};}
 export async function googleApi(path:string,token:string,method:string,body?:unknown){return fetch('https://www.googleapis.com/calendar/v3/'+path,{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});}
 export function nextDate(ymd:string){const date=new Date(ymd+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+1);return date.toISOString().slice(0,10);}
