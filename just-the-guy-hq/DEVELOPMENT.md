@@ -22,7 +22,7 @@ Before closing an item, record its Preview build, database permission tests wher
 
 Implemented on `hq-upgrades-test` against the isolated Just The Guy HQ Test project:
 
-- Database-backed, atomic estimate/invoice number allocation with configurable prefix, year, and padding; legacy matching numbers are included when the sequence starts.
+- Database-backed, atomic estimate/invoice number allocation with configurable prefix, year, and padding; legacy matching numbers are included when the sequence starts. The sequence allocator lives in the non-public `private` schema and validates workspace ownership/admin access.
 - Draft creation now snapshots catalog costs and selected measurement runs, validates customer/property/job/contact relationships, and saves line items and document totals in one RPC transaction.
 - Database triggers recalculate draft totals from line items and prevent deletion or silent financial edits after a document is issued.
 - New-document editor can load active catalog services and job measurements; choose a matching gutter preset to populate footage and preserve a measurement snapshot.

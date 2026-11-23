@@ -89,7 +89,11 @@ create policy billing_number_counters_admin on public.billing_number_counters
     or public.hq_is_admin(organization_id)
   );
 
-create or replace function public.hq_next_document_number(org uuid, kind text, issue_date date default current_date)
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+create or replace function private.hq_next_document_number(org uuid, kind text, issue_date date default current_date)
 returns text
 language plpgsql
 security definer
@@ -129,8 +133,8 @@ begin
 end;
 $$;
 
-revoke all on function public.hq_next_document_number(uuid,text,date) from public, anon;
-grant execute on function public.hq_next_document_number(uuid,text,date) to authenticated;
+revoke all on function private.hq_next_document_number(uuid,text,date) from public, anon;
+grant execute on function private.hq_next_document_number(uuid,text,date) to authenticated;
 revoke all on public.billing_number_counters from public, anon, authenticated;
 revoke all on public.billing_settings from public, anon, authenticated;
 
@@ -186,7 +190,7 @@ begin
   if draft.recipient_contact_id is not null and not exists (
     select 1 from public.contacts c where c.id=draft.recipient_contact_id and c.organization_id=org and c.client_id=draft.client_id
   ) then raise exception 'Choose a recipient contact that belongs to this customer.'; end if;
-  v_number := coalesce(nullif(btrim(header->>'number'),''), public.hq_next_document_number(org,draft.kind,draft.issue_date));
+  v_number := coalesce(nullif(btrim(header->>'number'),''), private.hq_next_document_number(org,draft.kind,draft.issue_date));
   insert into public.documents (
     organization_id,client_id,property_id,job_id,kind,number,title,amount,status,
     recipient_contact_id,recipient_email,issue_date,due_date,expiration_date,purchase_order,
@@ -235,6 +239,7 @@ $$;
 
 revoke all on function public.hq_create_billing_draft(uuid,jsonb,jsonb) from public, anon;
 grant execute on function public.hq_create_billing_draft(uuid,jsonb,jsonb) to authenticated;
+drop function if exists public.hq_next_document_number(uuid,text,date);
 
 
 -- Keep all document totals in sync with item edits, including edits made in a later draft session.
