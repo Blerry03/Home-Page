@@ -116,11 +116,11 @@ begin
   v_counter_year := case when v_include_year then v_year else 2000 end;
   select coalesce(max(case when d.number ~ '-[0-9]+$' then regexp_replace(d.number, '^.*-', '')::bigint else 0 end),0) into v_last
     from public.documents d
-    where d.organization_id=org and d.kind=kind
+    where d.organization_id=org and d.kind=$2
       and d.number like trim(v_prefix)||'-'||case when v_include_year then v_year::text||'-%' else '%' end;
   insert into public.billing_number_counters (organization_id, kind, document_year, next_value)
-    values (org, kind, v_counter_year, v_last+2)
-  on conflict (organization_id, kind, document_year)
+    values (org, $2, v_counter_year, v_last+2)
+  on conflict on constraint billing_number_counters_pkey
     do update set next_value = greatest(public.billing_number_counters.next_value,excluded.next_value-1) + 1
   returning next_value - 1 into v_next;
   v_number := trim(v_prefix) || case when v_include_year then '-' || v_year::text else '' end ||
