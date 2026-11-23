@@ -29,3 +29,21 @@
 .newDocActions{display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--surface,#fff);padding:16px 0;border-top:1px solid #dce5ee;z-index:3}
 .newDocForm .billingGrid>label{min-width:0}
 @media(max-width:650px){.newDocForm{padding:4px 10px 14px}.newDocActions{flex-direction:column-reverse}.newDocActions button{width:100%}}
+
+.hqDraftLayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,34%);align-items:start;gap:20px}
+.hqDraft .newDocForm{min-width:0}
+.hqDraft .billingSectionHeader{min-height:48px}
+.hqDraftPreview{position:sticky;top:18px;border:1px solid #dce5ee;border-radius:14px;background:#f2f6fb;padding:14px;min-width:0}
+.hqDraftPreview h4{margin:0 0 10px;color:#254d75}
+.hqDraftSheet{background:#fff;color:#1b3049;border:1px solid #e1e9f1;border-radius:9px;padding:20px;overflow-wrap:anywhere}
+.hqDraftSheet h3{margin:8px 0 0;color:#173f70}
+.hqDraftSheet ul{margin:16px 0;padding:0;list-style:none}
+.hqDraftSheet li,.hqDraftSheet dl>div{display:flex;justify-content:space-between;gap:12px;padding:6px 0}
+.hqDraftSheet dl{margin-bottom:0}
+.hqDraftSheet dd{margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hqDraftSheet .hqDraftTotal{border-top:2px solid #3279bf;margin-top:6px;padding-top:10px;font-weight:700}
+.hqDraftTerms{white-space:pre-wrap}
+@media(max-width:1050px){
+ .hqDraftLayout{grid-template-columns:minmax(0,1fr)}
+ .hqDraftPreview{position:static}
+}
