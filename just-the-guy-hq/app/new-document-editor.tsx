@@ -5,13 +5,20 @@ import {ChevronDown,ChevronRight,Plus,X,Trash2} from 'lucide-react';
 import type {Client,Contact,Property,Job} from '../lib/data';
 
 export type DraftItem={id:string;item_name:string;description:string;quantity:number;unit:string;unit_price:number;tax_rate:number;discount_type:'amount'|'percent';discount_value:number};
-export type NewDocumentDraft={client_id:string;property_id:string|null;job_id:string|null;kind:'estimate'|'invoice';number:string;title:string;amount:number;status:'draft';recipient_contact_id:string|null;recipient_email:string;issue_date:string;due_date:string|null;purchase_order:string|null;contract_terms:string;notes:string;items:DraftItem[]};
+export type NewDocumentDraft={client_id:string;new_customer_name?:string;new_customer_phone?:string;new_property_street?:string;new_property_city?:string;new_property_zip?:string;property_id:string|null;job_id:string|null;kind:'estimate'|'invoice';number:string;title:string;amount:number;status:'draft';recipient_contact_id:string|null;recipient_email:string;issue_date:string;due_date:string|null;purchase_order:string|null;contract_terms:string;notes:string;items:DraftItem[]};
 const money=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const line=billingLineTotals;
 const blank=():DraftItem=>({id:crypto.randomUUID(),item_name:'',description:'',quantity:1,unit:'each',unit_price:0,tax_rate:0,discount_type:'amount',discount_value:0});
 export default function NewDocumentEditor({kind,clients,contacts,properties,jobs,initialClientId='',initialPropertyId='',onCancel,onSave,saving}:{kind:'estimate'|'invoice';clients:Client[];contacts:Contact[];properties:Property[];jobs:Job[];initialClientId?:string;initialPropertyId?:string;onCancel:()=>void;onSave:(data:NewDocumentDraft)=>Promise<void>;saving:boolean}){
  const [clientId,setClientId]=useState(initialClientId);
+ const [customerQuery,setCustomerQuery]=useState(()=>clients.find(c=>c.id===initialClientId)?.name||'');
+ const [newCustomer,setNewCustomer]=useState(false);
+ const [phone,setPhone]=useState('');
+ const [propertyQuery,setPropertyQuery]=useState(()=>properties.find(p=>p.id===initialPropertyId)?.address_line1||'');
+ const [newProperty,setNewProperty]=useState(false);
+ const [city,setCity]=useState('');
+ const [zip,setZip]=useState('');
  const [propertyId,setPropertyId]=useState(initialPropertyId);
  const [jobId,setJobId]=useState('');
  const [recipientContact,setRecipientContact]=useState('');
@@ -22,11 +29,31 @@ export default function NewDocumentEditor({kind,clients,contacts,properties,jobs
  const [sections,setSections]=useState(['customer','details','items']);const [error,setError]=useState('');
  const totals=useMemo(()=>items.reduce((s,i)=>{const n=line(i);return {subtotal:s.subtotal+n.base,discount:s.discount+n.discount,tax:s.tax+n.tax,total:s.total+n.total}},{subtotal:0,discount:0,tax:0,total:0}),[items]);
  const contactList=contacts.filter(c=>c.client_id===clientId);
- function changeClient(id:string){setClientId(id);setPropertyId('');setJobId('');const c=contacts.find(c=>c.client_id===id&&c.role===(kind==='estimate'?'estimates':'billing')&&c.email);setRecipientContact(c?.id||'');setEmail(c?.email||'');}
+ function changeClient(id:string){
+  setClientId(id);setNewCustomer(false);setNewProperty(false);setJobId('');
+  const matchingProperties=properties.filter(p=>p.client_id===id);
+  const onlyProperty=matchingProperties.length===1?matchingProperties[0]:undefined;
+  setPropertyId(onlyProperty?.id||'');setPropertyQuery(onlyProperty?.address_line1||'');
+  const matchingContacts=contacts.filter(c=>c.client_id===id&&c.email);
+  const contact=matchingContacts.find(c=>c.role===(kind==='estimate'?'estimates':'billing'))||
+   matchingContacts.find(c=>c.role==='primary')||matchingContacts[0];
+  setRecipientContact(contact?.id||'');setEmail(contact?.email||'');
+ }
+ const customerMatches=customerQuery.trim()?clients.filter(c=>c.name.toLowerCase().includes(customerQuery.trim().toLowerCase())).slice(0,8):[];
+ const propertyMatches=properties.filter(p=>p.client_id===clientId&&
+  `${p.label} ${p.address_line1} ${p.city} ${p.postal_code}`.toLowerCase().includes(propertyQuery.trim().toLowerCase())).slice(0,8);
+ function chooseCustomer(c:Client){setCustomerQuery(c.name);changeClient(c.id);}
+ function typeCustomer(value:string){
+  setCustomerQuery(value);
+  if(newCustomer)return;
+  const matches=clients.filter(c=>c.name.trim().toLowerCase()===value.trim().toLowerCase());
+  if(matches.length===1){chooseCustomer(matches[0]);return;}
+  if(clientId)changeClient('');
+ }
  function editItem(i?:DraftItem){setItemDraft(i?{...i}:blank());setEditingId(i?.id||null);setError('');setItemOpen(true);}
  function addItem(e:React.FormEvent){e.preventDefault();const i=itemDraft;const x=[i.quantity,i.unit_price,i.tax_rate,i.discount_value];if(!i.item_name.trim()||x.some(n=>!Number.isFinite(n))||i.quantity<=0||i.unit_price<0||i.tax_rate<0||i.tax_rate>100||i.discount_value<0||(i.discount_type==='percent'&&i.discount_value>100)||(i.discount_type==='amount'&&i.discount_value>i.quantity*i.unit_price)){setError('Check item name, quantity, price, tax, and discount.');return;}setItems(p=>editingId?p.map(v=>v.id===editingId?i:v):[...p,i]);setItemOpen(false);setError('');}
  const updateItem=(key:keyof DraftItem,value:string)=>setItemDraft(p=>({...p,[key]:['quantity','unit_price','tax_rate','discount_value'].includes(key)?Number(value):value}));
- async function save(e:React.FormEvent){e.preventDefault();setError('');if(!clientId)return setError('Choose a customer.');if(!number.trim())return setError('Enter a document number.');if(!items.length)return setError('Add at least one line item before saving.');if(!email.trim()||!/^\S+@\S+\.\S+$/.test(email.trim()))return setError('Enter a valid recipient email.');try{await onSave({client_id:clientId,property_id:propertyId||null,job_id:jobId||null,kind,number:number.trim(),title:title.trim()||items[0].item_name,amount:Math.round(totals.total*100)/100,status:'draft',recipient_contact_id:recipientContact||null,recipient_email:email.trim(),issue_date:issued,due_date:due||null,purchase_order:po.trim()||null,contract_terms:terms,notes,items});}catch(e){setError(e instanceof Error?e.message:'Unable to save draft');}}
+ async function save(e:React.FormEvent){e.preventDefault();setError('');if(!clientId&&(!newCustomer||!customerQuery.trim()))return setError('Choose a customer or add a new one.');if(propertyQuery.trim()&&!propertyId&&!newProperty)return setError('Select a service address or add it to the customer.');if(newProperty&&(!propertyQuery.trim()||!city.trim()))return setError('Enter the street address and city.');if(!number.trim())return setError('Enter a document number.');if(!items.length)return setError('Add at least one line item before saving.');if(!email.trim()||!/^\S+@\S+\.\S+$/.test(email.trim()))return setError('Enter a valid recipient email.');try{await onSave({client_id:clientId,...(newCustomer?{new_customer_name:customerQuery.trim(),new_customer_phone:phone.trim()}:{}),...(newProperty?{new_property_street:propertyQuery.trim(),new_property_city:city.trim(),new_property_zip:zip.trim()}:{}),property_id:propertyId||null,job_id:jobId||null,kind,number:number.trim(),title:title.trim()||items[0].item_name,amount:Math.round(totals.total*100)/100,status:'draft',recipient_contact_id:recipientContact||null,recipient_email:email.trim(),issue_date:issued,due_date:due||null,purchase_order:po.trim()||null,contract_terms:terms,notes,items});}catch(e){setError(e instanceof Error?e.message:'Unable to save draft');}}
  const label=kind==='estimate'?'Estimate':'Invoice';
  const customer=clients.find(client=>client.id===clientId);
  const serviceProperty=properties.find(property=>property.id===propertyId);
@@ -35,7 +62,18 @@ export default function NewDocumentEditor({kind,clients,contacts,properties,jobs
  return <section className="panel billingV8 hqDraft"><div className="panelHead"><div><h3>New {label}</h3><p className="muted">{number}</p></div></div>
  <div className="hqDraftLayout"><form onSubmit={save} className="newDocForm">
  {section('from','From','Just The Guy Gutters & Exteriors',<strong>Just The Guy Gutters & Exteriors</strong>)}
- {section('customer',kind==='estimate'?'Prepared For':'Bill To',customer?.name||'Choose a customer',<div className="billingGrid"><label>Customer *<select required value={clientId} onChange={e=>changeClient(e.target.value)}><option value="">Select customer…</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Property<select value={propertyId} onChange={e=>{setPropertyId(e.target.value);setJobId('')}}><option value="">No property selected</option>{properties.filter(p=>p.client_id===clientId).map(p=><option key={p.id} value={p.id}>{p.label} — {p.address_line1}</option>)}</select></label><label>Related job (optional)<select value={jobId} onChange={e=>setJobId(e.target.value)}><option value="">No job selected</option>{jobs.filter(j=>j.client_id===clientId&&(!propertyId||j.property_id===propertyId)).map(j=><option key={j.id} value={j.id}>{j.title}</option>)}</select></label><label>Recipient contact<select value={recipientContact} onChange={e=>{const c=contactList.find(c=>c.id===e.target.value);setRecipientContact(e.target.value);if(c?.email)setEmail(c.email)}}><option value="">Enter email manually</option>{contactList.map(c=><option key={c.id} value={c.id}>{c.name} ({c.role}){c.email?' — '+c.email:''}</option>)}</select></label><label className="newDocFull">{label} recipient email *<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="accounting@example.com"/></label></div>)}
+ {section('customer',kind==='estimate'?'Prepared For':'Bill To',customer?.name||'Choose a customer',<div className="billingGrid"><div className="newDocFull"><label>Customer name<input type="search" value={customerQuery} onChange={e=>typeCustomer(e.target.value)} placeholder="Type a customer name"/></label>
+ {newCustomer?<><p className="muted">This customer will be added when you save the draft.</p><button type="button" className="textButton" onClick={()=>{setNewCustomer(false);setNewProperty(false)}}>Use an existing customer</button></>:!clientId&&customerQuery.trim()&&<div>
+ {customerMatches.map(c=><button type="button" className="textButton" key={c.id} onClick={()=>chooseCustomer(c)}>{c.name}{c.phone?' · '+c.phone:''}</button>)}
+ {!customerMatches.some(c=>c.name.trim().toLowerCase()===customerQuery.trim().toLowerCase())&&<button type="button" className="outline" onClick={()=>setNewCustomer(true)}>Add {customerQuery.trim()} as a new customer</button>}
+ </div>}</div>
+ {newCustomer&&<label>Customer phone<input type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></label>}
+ {(clientId||newCustomer)&&<div className="newDocFull"><label>Service address<input type="search" value={propertyQuery} onChange={e=>{setPropertyQuery(e.target.value);setPropertyId('');setJobId('');}} placeholder="Type the service address"/></label>
+ {!newProperty&&!propertyId&&propertyMatches.map(p=><button type="button" className="textButton" key={p.id} onClick={()=>{setPropertyId(p.id);setPropertyQuery(p.address_line1);setJobId('')}}>{p.address_line1}, {p.city}</button>)}
+ {!newProperty&&!propertyId&&propertyQuery.trim()&&<button type="button" className="outline" onClick={()=>setNewProperty(true)}>Add this service address</button>}
+ {newProperty&&<div className="billingGrid"><label>City (Michigan)<input required value={city} onChange={e=>setCity(e.target.value)}/></label><label>ZIP code<input value={zip} onChange={e=>setZip(e.target.value)}/></label><button type="button" className="textButton" onClick={()=>{setNewProperty(false);setPropertyQuery('')}}>Cancel new address</button></div>}
+ </div>}
+ <label>Related job (optional)<select value={jobId} onChange={e=>setJobId(e.target.value)}><option value="">No job selected</option>{jobs.filter(j=>j.client_id===clientId&&(!propertyId||j.property_id===propertyId)).map(j=><option key={j.id} value={j.id}>{j.title}</option>)}</select></label><label>Recipient contact<select value={recipientContact} onChange={e=>{const c=contactList.find(c=>c.id===e.target.value);setRecipientContact(e.target.value);if(c?.email)setEmail(c.email)}}><option value="">Enter email manually</option>{contactList.map(c=><option key={c.id} value={c.id}>{c.name} ({c.role}){c.email?' — '+c.email:''}</option>)}</select></label><label className="newDocFull">{label} recipient email *<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="accounting@example.com"/></label></div>)}
  {section('details',label+' details',issued,<div className="billingGrid"><label>{label} Number *<input required value={number} onChange={e=>setNumber(e.target.value)}/></label><label>Optional title<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Defaults to first line item"/></label><label>Issue date<input type="date" required value={issued} onChange={e=>setIssued(e.target.value)}/></label><label>{kind==='estimate'?'Expiration date':'Due date'}<input type="date" value={due} onChange={e=>setDue(e.target.value)}/></label><label>Purchase order / reference<input value={po} onChange={e=>setPo(e.target.value)}/></label></div>)}
  {section('items','Items & Pricing',`${items.length} item(s) · ${money(totals.total)}`,<><div className="billingTableWrap"><table className="billingTable"><thead><tr><th>Item</th><th>Price</th><th>Quantity</th><th>Total</th><th></th></tr></thead><tbody>{items.map(i=><tr key={i.id}><td><strong>{i.item_name}</strong><small>{i.description}{i.discount_value?` · ${i.discount_type==='percent'?i.discount_value+'%':money(i.discount_value)} discount`:''} · Tax {i.tax_rate}%</small></td><td>{money(i.unit_price)}</td><td>{i.quantity} {i.unit}</td><td>{money(line(i).total)}</td><td><button type="button" className="iconBtn" aria-label={`Edit ${i.item_name}`} onClick={()=>editItem(i)}>✎</button><button type="button" className="iconBtn" aria-label={`Remove ${i.item_name}`} onClick={()=>setItems(p=>p.filter(v=>v.id!==i.id))}><Trash2 size={16}/></button></td></tr>)}{!items.length&&<tr><td className="muted" colSpan={5}>Add a line item to start building the {kind}.</td></tr>}</tbody></table></div><button type="button" className="outline" onClick={()=>editItem()}><Plus size={17}/> Add Item</button><div className="billingTotals"><div><span>Subtotal</span><strong>{money(totals.subtotal)}</strong></div><div><span>Discounts</span><strong>−{money(totals.discount)}</strong></div><div><span>Tax</span><strong>{money(totals.tax)}</strong></div><div className="billingGrand"><strong>Total amount</strong><strong>{money(totals.total)}</strong></div></div></>)}
  {section('terms','Terms & notes',terms||notes?'Added':'',<><label>Contract agreement / terms<textarea rows={4} value={terms} onChange={e=>setTerms(e.target.value)} placeholder="Contract terms, scope, warranties and payment conditions"/></label><label>Internal notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></>)}
@@ -49,7 +87,7 @@ export default function NewDocumentEditor({kind,clients,contacts,properties,jobs
    <h3>{label}</h3>
    <p className="muted">{number} · {issued}</p>
    {due&&<p>{kind==='estimate'?'Expires':'Due'} {due}</p>}
-   {customer&&<p><strong>{customer.name}</strong>{address&&<><br/>{address}</>}</p>}
+   {(customer||newCustomer)&&<p><strong>{customer?.name||customerQuery}</strong>{(address||newProperty)&&<><br/>{address||[propertyQuery,city,zip].filter(Boolean).join(', ')}</>}</p>}
    {title&&<p><strong>{title}</strong></p>}
    {items.length>0&&<ul>{items.map(item=><li key={item.id}><span>{item.item_name}</span><strong>{money(line(item).total)}</strong></li>)}</ul>}
    <dl>
