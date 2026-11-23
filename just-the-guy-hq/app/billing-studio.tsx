@@ -1,4 +1,5 @@
 'use client';
+import { billingLineTotals } from '../lib/billing-money';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {createClient} from '@supabase/supabase-js';
 import type {Document,Client,Property} from '../lib/data';
@@ -8,7 +9,7 @@ type Catalog={id:string;organization_id:string;name:string;description:string|nu
 type Payment={id:string;organization_id:string;document_id:string;amount:number;method:string;payment_date:string;reference:string|null;notes:string|null};
 const money=(n:number)=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>new Date().toLocaleDateString('en-CA');
-const itemTotals=(i:Item)=>{const base=Number(i.quantity)*Number(i.unit_price);const discount=Math.min(base,i.discount_type==='percent'?base*Number(i.discount_value||0)/100:Number(i.discount_value||0));const taxable=base-discount;return {base,discount,tax:taxable*Number(i.tax_rate)/100,total:taxable*(1+Number(i.tax_rate)/100)};};
+const itemTotals=billingLineTotals;
 export default function BillingStudio({organizationId,documents,clients,properties,selectedDocumentId,hideSelector=false}:{organizationId:string;documents:Document[];clients:Client[];properties:Property[];selectedDocumentId?:string;hideSelector?:boolean}){
  const [doc,setDoc]=useState(selectedDocumentId||'');const [items,setItems]=useState<Item[]>([]);const [payments,setPayments]=useState<Payment[]>([]);const [catalog,setCatalog]=useState<Catalog[]>([]);
  const [sections,setSections]=useState<string[]>(['details','items']);const [itemOpen,setItemOpen]=useState(false);const [editing,setEditing]=useState<string|null>(null);
