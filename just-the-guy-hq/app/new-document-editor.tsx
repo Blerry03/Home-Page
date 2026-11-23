@@ -11,18 +11,24 @@ const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMon
 const line=billingLineTotals;
 const blank=():DraftItem=>({id:crypto.randomUUID(),item_name:'',description:'',quantity:1,unit:'each',unit_price:0,tax_rate:0,discount_type:'amount',discount_value:0});
 export default function NewDocumentEditor({kind,clients,contacts,properties,jobs,initialClientId='',initialPropertyId='',draftScope,onCancel,onSave,saving}:{kind:'estimate'|'invoice';clients:Client[];contacts:Contact[];properties:Property[];jobs:Job[];initialClientId?:string;initialPropertyId?:string;draftScope:string;onCancel:()=>void;onSave:(data:NewDocumentDraft)=>Promise<void>;saving:boolean}){
+ const startingProperties=properties.filter(p=>p.client_id===initialClientId);
+ const startingProperty=startingProperties.find(p=>p.id===initialPropertyId)||
+  (startingProperties.length===1?startingProperties[0]:undefined);
+ const startingContacts=contacts.filter(c=>c.client_id===initialClientId&&c.email);
+ const startingContact=startingContacts.find(c=>c.role===(kind==='estimate'?'estimates':'billing'))||
+  startingContacts.find(c=>c.role==='primary')||startingContacts[0];
  const [clientId,setClientId]=useState(initialClientId);
  const [customerQuery,setCustomerQuery]=useState(()=>clients.find(c=>c.id===initialClientId)?.name||'');
  const newCustomer=!clientId&&Boolean(customerQuery.trim());
  const [phone,setPhone]=useState('');
- const [propertyQuery,setPropertyQuery]=useState(()=>properties.find(p=>p.id===initialPropertyId)?.address_line1||'');
+ const [propertyQuery,setPropertyQuery]=useState(()=>startingProperty?.address_line1||'');
  const newProperty=!propertyId&&Boolean(propertyQuery.trim());
  const [city,setCity]=useState('');
  const [zip,setZip]=useState('');
- const [propertyId,setPropertyId]=useState(initialPropertyId);
+ const [propertyId,setPropertyId]=useState(()=>startingProperty?.id||'');
  const [jobId,setJobId]=useState('');
- const [recipientContact,setRecipientContact]=useState('');
- const [email,setEmail]=useState(()=>contacts.find(c=>c.client_id===initialClientId&&c.role===(kind==='estimate'?'estimates':'billing'))?.email||'');
+ const [recipientContact,setRecipientContact]=useState(()=>startingContact?.id||'');
+ const [email,setEmail]=useState(()=>startingContact?.email||'');
  const [number,setNumber]=useState(()=>`${kind==='estimate'?'EST':'INV'}-${Date.now().toString().slice(-9)}`);
  const [title,setTitle]=useState('');const [issued,setIssued]=useState(today());const [due,setDue]=useState('');const [po,setPo]=useState('');const [terms,setTerms]=useState('');const [notes,setNotes]=useState('');
  const [items,setItems]=useState<DraftItem[]>([]);const [itemOpen,setItemOpen]=useState(false);const [itemDraft,setItemDraft]=useState<DraftItem>(blank());const [editingId,setEditingId]=useState<string|null>(null);
@@ -92,6 +98,7 @@ export default function NewDocumentEditor({kind,clients,contacts,properties,jobs
   setPropertyQuery(value);setPropertyId(matches.length===1?matches[0].id:'');setJobId('');
  }} placeholder="Type the service address"/></label>
  {!propertyId&&propertyMatches.map(p=><button type="button" className="textButton" key={p.id} onClick={()=>{setPropertyId(p.id);setPropertyQuery(p.address_line1);setJobId('')}}>{p.address_line1}, {p.city}</button>)}
+ {propertyId&&<p className="muted">{properties.find(p=>p.id===propertyId)?.city} {properties.find(p=>p.id===propertyId)?.postal_code}</p>}
  {newProperty&&<div className="billingGrid"><label>City (Michigan)<input required value={city} onChange={e=>setCity(e.target.value)}/></label><label>ZIP code<input value={zip} onChange={e=>setZip(e.target.value)}/></label></div>}
  </div>
  <label>Related job (optional)<select value={jobId} onChange={e=>setJobId(e.target.value)}><option value="">No job selected</option>{jobs.filter(j=>j.client_id===clientId&&(!propertyId||j.property_id===propertyId)).map(j=><option key={j.id} value={j.id}>{j.title}</option>)}</select></label><label className="newDocFull">{label} recipient email *<input type="email" required value={email} onChange={e=>{const value=e.target.value;setEmail(value);setRecipientContact(contacts.find(c=>c.client_id===clientId&&c.email?.toLowerCase()===value.trim().toLowerCase())?.id||'')}} placeholder="accounting@example.com"/></label></div>)}
