@@ -166,15 +166,10 @@ export default function Page(){
     setStore(p=>({...p,documents:[...p.documents,saved as Document]}));
     setCreatingDocument(null);setDocumentInEditor(id);setNotice('Draft and line items saved in this browser (demo mode).');
    }else{
-    const {data,error:e}=await supabase!.from('documents').insert(row).select('id').single();
-    if(e)throw e;
-    const id=data.id as string;
-    const {error:itemError}=await supabase!.from('document_items').insert(items.map(({id:_temp,...i})=>({...i,document_id:id,organization_id:orgId})));
-    if(itemError){
-     // Do not silently leave a partial document if line items could not be saved.
-     const {error:rollbackError}=await supabase!.from('documents').delete().eq('id',id).eq('organization_id',orgId);
-     throw new Error('Could not save line items: '+itemError.message+(rollbackError?' (An empty draft may remain; please check your documents.)':''));
-    }
+    const {data:id,error:saveError}=await supabase!.rpc('hq_create_billing_draft',{
+     org:orgId,header:document,lines:items.map(({id:_temp,...item})=>item),
+    });
+    if(saveError)throw new Error(saveError.message);
     await refresh(orgId);setCreatingDocument(null);setDocumentInEditor(id);setNotice('Draft and line items saved. Nothing was emailed.');
    }
   }finally{setBusy(false)}
