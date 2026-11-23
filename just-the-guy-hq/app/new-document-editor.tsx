@@ -22,10 +22,10 @@ export default function NewDocumentEditor({kind,clients,contacts,properties,jobs
  const newCustomer=!clientId&&Boolean(customerQuery.trim());
  const [phone,setPhone]=useState('');
  const [propertyQuery,setPropertyQuery]=useState(()=>startingProperty?.address_line1||'');
- const newProperty=!propertyId&&Boolean(propertyQuery.trim());
  const [city,setCity]=useState('');
  const [zip,setZip]=useState('');
  const [propertyId,setPropertyId]=useState(()=>startingProperty?.id||'');
+ const newProperty=!propertyId&&Boolean(propertyQuery.trim());
  const [jobId,setJobId]=useState('');
  const [recipientContact,setRecipientContact]=useState(()=>startingContact?.id||'');
  const [email,setEmail]=useState(()=>startingContact?.email||'');
