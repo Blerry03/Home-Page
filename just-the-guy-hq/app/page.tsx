@@ -54,7 +54,21 @@ export default function Page(){
   load();const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{setUserId(session?.user.id||null);if(!session){setOrgId(null);setStore(emptyStore());}});
   return()=>{active=false;subscription.unsubscribe()};
  },[]);
- useEffect(()=>{if(!supabase||!userId)return;let cancelled=false;(async()=>{const {data,error:e}=await supabase!.from('organizations').select('id').eq('owner_id',userId).maybeSingle();if(cancelled)return;if(e){setError(e.message);return;}setOrgId(data?.id||null);if(data)await refresh(data.id);})();return()=>{cancelled=true;};},[userId,refresh]);
+ useEffect(()=>{
+  if(!supabase||!userId)return;
+  let cancelled=false;
+  setOrgId(null);
+  (async()=>{
+   const {data,error:lookupError}=await supabase!.from('organizations').select('id,owner_id');
+   if(cancelled)return;
+   if(lookupError){setError(lookupError.message);return;}
+   // RLS exposes the owned workspace and at most one explicitly shared workspace.
+   const organization=data.find(row=>row.owner_id!==userId) ?? data.find(row=>row.owner_id===userId);
+   setOrgId(organization?.id ?? null);
+   if(organization)await refresh(organization.id);
+  })();
+  return()=>{cancelled=true;};
+ },[userId,refresh]);
  useEffect(()=>{if(!configured&&ready)localStorage.setItem('jtg-hq-demo-v1',JSON.stringify(store));},[store,ready]);
  useEffect(()=>{
   if(!ready||typeof window==='undefined')return;
