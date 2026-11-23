@@ -1,4 +1,5 @@
 'use client';
+import { billingLineTotals } from '../lib/billing-money';
 import {useMemo,useState} from 'react';
 import {ChevronDown,ChevronRight,Plus,X,Trash2} from 'lucide-react';
 import type {Client,Contact,Property,Job} from '../lib/data';
@@ -7,7 +8,7 @@ export type DraftItem={id:string;item_name:string;description:string;quantity:nu
 export type NewDocumentDraft={client_id:string;property_id:string|null;job_id:string|null;kind:'estimate'|'invoice';number:string;title:string;amount:number;status:'draft';recipient_contact_id:string|null;recipient_email:string;issue_date:string;due_date:string|null;purchase_order:string|null;contract_terms:string;notes:string;items:DraftItem[]};
 const money=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-const line=(i:DraftItem)=>{const base=i.quantity*i.unit_price;const discount=Math.min(base,i.discount_type==='percent'?base*i.discount_value/100:i.discount_value);const taxable=base-discount;return {base,discount,tax:taxable*i.tax_rate/100,total:taxable*(1+i.tax_rate/100)};};
+const line=billingLineTotals;
 const blank=():DraftItem=>({id:crypto.randomUUID(),item_name:'',description:'',quantity:1,unit:'each',unit_price:0,tax_rate:0,discount_type:'amount',discount_value:0});
 export default function NewDocumentEditor({kind,clients,contacts,properties,jobs,initialClientId='',initialPropertyId='',onCancel,onSave,saving}:{kind:'estimate'|'invoice';clients:Client[];contacts:Contact[];properties:Property[];jobs:Job[];initialClientId?:string;initialPropertyId?:string;onCancel:()=>void;onSave:(data:NewDocumentDraft)=>Promise<void>;saving:boolean}){
  const [clientId,setClientId]=useState(initialClientId);
